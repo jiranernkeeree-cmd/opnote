@@ -96,7 +96,11 @@
     <div class="grid">
       <div class="full">
         <label>Operation Type</label>
-        <select id="OP_TYPE"></select>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="OP_TYPE" style="flex:1 1 280px;min-width:220px"></select>
+          <input type="text" id="OP_DETAIL_SUFFIX" style="flex:1 1 260px;min-width:200px"
+                 placeholder="รายละเอียดเพิ่มเติม (ต่อท้ายชื่อ operation) เช่น c/o adhesiolysis">
+        </div>
       </div>
       <div class="full" id="opOtherWrap" style="display:none">
         <label>ระบุชื่อ Operation (กรณี Other)</label><input type="text" id="OP_OTHER" placeholder="เช่น Splenectomy">
@@ -354,7 +358,7 @@ function fmtDate(iso){
 const TEXT_IDS = ["PATIENT_NAME","HN","AN","AGE","WARD","DATE","TIME_START","TIME_END","OP_OTHER",
  "PRE_OP_DX","POST_OP_DX","SURGEON","FIRST_ASSISTANT","SECOND_ASSISTANT","SCRUB_NURSE","CIRCULATE_NURSE",
  "ANESTHESIOLOGIST","ANESTHETIST","ANESTHESIA","PATH_DETAIL","POSITION","APPROACH","FINDING",
- "OTHER_ANES_DETAIL","EBL","COMPLICATION","DRAIN_DETAIL","OP_DETAIL","ADDITIONAL_NOTES","OP_TYPE","PRINT_SIZE",
+ "OTHER_ANES_DETAIL","EBL","COMPLICATION","DRAIN_DETAIL","OP_DETAIL","ADDITIONAL_NOTES","OP_TYPE","OP_DETAIL_SUFFIX","PRINT_SIZE",
  "PREOP_ATB","WOUND"];
 const CB_IDS = ["CB_LA","CB_TIVA","CB_SB","CB_RB","CB_GA","CB_MAC","CB_OTHER_ANES"];
 
@@ -445,7 +449,8 @@ function collect(){
   d.DRAIN = (document.querySelector('input[name=DRAIN]:checked')||{}).value || "";
   d.SWAB  = (document.querySelector('input[name=SWAB]:checked')||{}).value || "";
   d.isOther = d.OP_TYPE === OTHER_LABEL || d.OP_TYPE === "";
-  d.OPERATION = d.isOther ? d.OP_OTHER : d.OP_TYPE;
+  const baseOp = d.isOther ? d.OP_OTHER : d.OP_TYPE;
+  d.OPERATION = [baseOp, d.OP_DETAIL_SUFFIX].filter(Boolean).join(" ").trim();
   return d;
 }
 
@@ -799,7 +804,7 @@ function clearForm(){
   document.querySelectorAll("input[type=text],input[type=number],input[type=date],input[type=time],textarea").forEach(el=>el.value="");
   document.querySelectorAll("input[type=checkbox],input[type=radio]").forEach(el=>el.checked=false);
   PEOPLE_IDS.forEach(id=>{ $(id).value=""; });
-  $("WOUND").value=""; $("OP_TYPE").selectedIndex=0;
+  $("WOUND").value=""; $("OP_TYPE").selectedIndex=0; $("OP_DETAIL_SUFFIX").value="";
   $("COMPLICATION").value="none";
   $("SHEET_URL").value=keepUrl; $("PRINT_SIZE").value=keepSize;
   lastAutoFill=""; $("DRAIN_DETAIL").style.display="none";
