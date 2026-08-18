@@ -43,6 +43,8 @@
   .primary:hover{background:var(--blue-dark)}
   .ghost{background:#fff;color:var(--blue);border:1.5px solid var(--blue)}
   .danger{background:#fff;color:#b3261e;border:1.5px solid #b3261e}
+  .signature-pad{display:block;width:100%;height:145px;background:#fff;border:1px solid var(--border);border-radius:6px;
+    cursor:crosshair;touch-action:none;}
   #previewPane{position:sticky;top:12px;min-width:0;max-width:100%;}
   #preview{background:#fff;border:1px solid var(--border);border-radius:10px;padding:28px 32px;
     min-height:400px;max-height:calc(100vh - 130px);overflow:auto;font-family:"Sarabun","TH Sarabun New",serif;font-size:14.5px;line-height:1.45;}
@@ -58,7 +60,7 @@
 <body>
 <header>
   <h1>Operative Note Generator</h1>
-  <span class="sub">กรอกข้อมูล → Export เป็นไฟล์ Word (.doc) — เลือก Operation แล้วระบบใส่ขั้นตอนผ่าตัดมาตรฐานให้อัตโนมัติ</span>
+  <span class="sub">กรอกข้อมูล → Export เป็น PDF / พิมพ์ — เลือก Operation แล้วระบบใส่ขั้นตอนผ่าตัดมาตรฐานให้อัตโนมัติ</span>
   <span class="badge" id="draftBadge" style="display:none">บันทึกแบบร่างอัตโนมัติแล้ว</span>
 </header>
 
@@ -90,7 +92,11 @@
       <div><label>Circulating Nurse</label><select id="CIRCULATE_NURSE" class="people"></select></div>
       <div><label>Anesthetist</label><select id="ANESTHETIST" class="people"></select></div>
       <div><label>Anesthesia type</label><select id="ANESTHESIA" class="people"></select></div>
-      <div><label>E-sign</label><input type="text" id="E_SIGN" placeholder="ชื่อผู้ลงนามอิเล็กทรอนิกส์"></div>
+      <div class="full">
+        <label>E-sign (วาดลายเซ็นด้วยเมาส์หรือปลายนิ้ว)</label>
+        <canvas id="E_SIGN" class="signature-pad" width="1200" height="290"></canvas>
+        <button type="button" class="ghost" style="padding:6px 12px;font-size:13px;margin-top:6px" onclick="clearSignature()">ล้างลายเซ็น</button>
+      </div>
     </div>
     <div class="hint">ทุกช่องรายชื่อ: เลือก "＋ เพิ่มรายชื่อ…" ท้ายลิสต์เพื่อเพิ่มชื่อใหม่ — ชื่อจะถูกจำไว้ในเครื่องให้เลือกครั้งถัดไป</div>
   </div>
@@ -350,6 +356,49 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
 const CHK = "☑", UNCHK = "☐"; // ☑ ☐
 const cb = on => on ? CHK : UNCHK;
+let signatureHasInk = false;
+
+function signatureData(){
+  return signatureHasInk ? $("E_SIGN").toDataURL("image/png") : "";
+}
+function signatureHtml(data){
+  return /^data:image\/png;base64,/.test(data||"")
+    ? `<img src="${data}" alt="E-sign" style="width:125pt;height:42pt;object-fit:contain;vertical-align:middle">`
+    : "____________________________";
+}
+function drawSavedSignature(data){
+  if(!/^data:image\/png;base64,/.test(data||"")) return;
+  const canvas=$("E_SIGN"), ctx=canvas.getContext("2d"), img=new Image();
+  img.onload=()=>{ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height); signatureHasInk=true; renderPreview(); };
+  img.src=data;
+}
+function clearSignature(save=true){
+  const canvas=$("E_SIGN");
+  canvas.getContext("2d").clearRect(0,0,canvas.width,canvas.height);
+  signatureHasInk=false;
+  renderPreview();
+  if(save) saveDraft();
+}
+function setupSignature(){
+  const canvas=$("E_SIGN"), ctx=canvas.getContext("2d");
+  ctx.strokeStyle="#111"; ctx.lineWidth=5; ctx.lineCap="round"; ctx.lineJoin="round";
+  let drawing=false, last;
+  const point=e=>{
+    const r=canvas.getBoundingClientRect();
+    return {x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};
+  };
+  canvas.addEventListener("pointerdown",e=>{
+    e.preventDefault(); drawing=true; last=point(e); canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove",e=>{
+    if(!drawing) return;
+    const next=point(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(next.x,next.y); ctx.stroke();
+    last=next; signatureHasInk=true;
+  });
+  const finish=()=>{ if(!drawing) return; drawing=false; renderPreview(); saveDraft(); };
+  canvas.addEventListener("pointerup",finish);
+  canvas.addEventListener("pointercancel",finish);
+}
 
 function fmtDate(iso){
   if(!iso) return "";
@@ -359,7 +408,7 @@ function fmtDate(iso){
 
 const TEXT_IDS = ["PATIENT_NAME","HN","AN","AGE","WARD","DATE","TIME_START","TIME_END","OP_OTHER",
  "PRE_OP_DX","POST_OP_DX","SURGEON","FIRST_ASSISTANT","SECOND_ASSISTANT","SCRUB_NURSE","CIRCULATE_NURSE",
- "ANESTHESIOLOGIST","ANESTHETIST","ANESTHESIA","E_SIGN","PATH_DETAIL","POSITION","APPROACH","FINDING",
+ "ANESTHESIOLOGIST","ANESTHETIST","ANESTHESIA","PATH_DETAIL","POSITION","APPROACH","FINDING",
  "OTHER_ANES_DETAIL","EBL","COMPLICATION","DRAIN_DETAIL","OP_DETAIL","ADDITIONAL_NOTES","OP_TYPE","OP_DETAIL_SUFFIX","PRINT_SIZE",
  "PREOP_ATB","WOUND"];
 const CB_IDS = ["CB_LA","CB_TIVA","CB_SB","CB_RB","CB_GA","CB_MAC","CB_OTHER_ANES"];
@@ -450,6 +499,7 @@ function collect(){
   d.PATH  = (document.querySelector('input[name=PATH]:checked')||{}).value || "";
   d.DRAIN = (document.querySelector('input[name=DRAIN]:checked')||{}).value || "";
   d.SWAB  = (document.querySelector('input[name=SWAB]:checked')||{}).value || "";
+  d.E_SIGN = signatureData();
   d.isOther = d.OP_TYPE === OTHER_LABEL || d.OP_TYPE === "";
   const baseOp = d.isOther ? d.OP_OTHER : d.OP_TYPE;
   d.OPERATION = [baseOp, d.OP_DETAIL_SUFFIX].filter(Boolean).join(" ").trim();
@@ -496,6 +546,7 @@ function buildBody(d, FS=13){
   const drainTxt = d.DRAIN==="yes" ? ("Yes" + (d.DRAIN_DETAIL ? " — "+esc(d.DRAIN_DETAIL) : ""))
                  : d.DRAIN==="no" ? "No" : "";
   const swabTxt = {corrected:"Corrected", incorrected:"Incorrected", na:"N/A"}[d.SWAB] || "";
+  const eSignHtml = signatureHtml(d.E_SIGN);
 
   const woundRow = (v,label,key)=> `${cb(d.WOUND===key)} ${label}`;
   const dot = (v,n)=> v ? esc(v) : "-";
@@ -557,7 +608,7 @@ function buildBody(d, FS=13){
     <div style="page-break-inside:avoid">
       <p style="text-align:right;margin:6pt 40pt 2pt 0">Surgeon -</p>
       <p style="text-align:right;margin:2pt 40pt 2pt 0">(${dot(d.SURGEON,40)})</p>
-      <p style="text-align:right;margin:2pt 40pt 2pt 0">E-sign: ${esc(d.E_SIGN) || "____________________________"}</p>
+      <p style="text-align:right;margin:2pt 40pt 2pt 0">E-sign: ${eSignHtml}</p>
     </div>
 </div>
 <p style="margin:4pt 0;font-size:${FT-4}pt">HN: ${esc(d.HN)}&nbsp;&nbsp;&nbsp;AN: ${esc(d.AN)}&nbsp;&nbsp;&nbsp;${esc(d.PATIENT_NAME)}&nbsp;&nbsp;&nbsp;Age: ${esc(d.AGE)}&nbsp;&nbsp;&nbsp;Ward: ${esc(d.WARD)}</p>`;
@@ -813,6 +864,7 @@ function loadDraft(){
     ["PATH","DRAIN","SWAB"].forEach(g=>{
       if(d[g]){ const el=document.querySelector(`input[name=${g}][value=${d[g]}]`); if(el) el.checked=true; }
     });
+    drawSavedSignature(d.E_SIGN);
     lastAutoFill = $("OP_DETAIL").value; // ถือว่าแบบร่างคือค่าเดิม ไม่ต้อง confirm ตอนเปลี่ยน op
   }catch(e){}
 }
@@ -826,6 +878,7 @@ function clearForm(){
   $("WOUND").value=""; $("OP_TYPE").selectedIndex=0; $("OP_DETAIL_SUFFIX").value="";
   $("COMPLICATION").value="none";
   $("SHEET_URL").value=keepUrl; $("PRINT_SIZE").value=keepSize;
+  clearSignature(false);
   lastAutoFill=""; $("DRAIN_DETAIL").style.display="none";
   toggleOther(); renderPreview();
   $("draftBadge").style.display="none";
@@ -846,6 +899,7 @@ function toggleOther(){
   $("OP_TYPE").addEventListener("change", ()=>{ toggleOther(); prefillProcedure(); });
   document.querySelectorAll('input[name=DRAIN]').forEach(r=>
     r.addEventListener("change", ()=>{ $("DRAIN_DETAIL").style.display = r.value==="yes"&&r.checked ? "" : "none"; }));
+  setupSignature();
   loadDraft();
   toggleOther();
   const dr = document.querySelector('input[name=DRAIN]:checked');
