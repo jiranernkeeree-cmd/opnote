@@ -538,20 +538,20 @@ function buildBody(d, FS=13){
  </tr>
 </table>
 <div style="border:0.75pt solid black;border-top:none;padding:3pt 6pt;overflow-wrap:break-word;word-wrap:break-word">
-    Position : ${dot(d.POSITION,80)}<br>
-    Approach : ${dot(d.APPROACH,79)}<br>
-    Finding :<br>
+    <u>Position</u> : ${dot(d.POSITION,80)}<br>
+    <u>Approach</u> : ${dot(d.APPROACH,79)}<br>
+    <u>Findings</u> :<br>
     ${esc(d.FINDING) || "-"}<br>
-    Pre-op antibiotics : ${esc(d.PREOP_ATB)}<br>
-    Procedure :<br>
+    <u>Pre-op antibiotics</u> : ${esc(d.PREOP_ATB)}<br>
+    <u>Procedure</u> :<br>
     ${anesLine}<br>
     ${procHtml}<br>
     <br>
-    Additional Notes : ${esc(d.ADDITIONAL_NOTES)}<br>
-    Drain : ${drainTxt}<br>
-    EBL : ${esc(d.EBL)} ml<br>
-    Complication : ${esc(d.COMPLICATION)}<br>
-    Swab count : ${swabTxt}
+    <u>Additional Notes</u> : ${esc(d.ADDITIONAL_NOTES)}<br>
+    <u>Drain</u> : ${drainTxt}<br>
+    <u>EBL</u> : ${esc(d.EBL)} ml<br>
+    <u>Complication</u> : ${esc(d.COMPLICATION)}<br>
+    <u>Swab count</u> : ${swabTxt}
     <div style="page-break-inside:avoid">
       <p style="text-align:right;margin:6pt 40pt 2pt 0">Surgeon -</p>
       <p style="text-align:right;margin:2pt 40pt 2pt 0">(${dot(d.SURGEON,40)})</p>
@@ -617,28 +617,26 @@ function sendToSheet(d){
     DRAIN:(d.DRAIN||"")+(d.DRAIN==="yes"&&d.DRAIN_DETAIL?" - "+d.DRAIN_DETAIL:""),
     EBL:d.EBL,COMPLICATION:d.COMPLICATION,
     SWAB:{corrected:"Corrected",incorrected:"Incorrected",na:"N/A"}[d.SWAB]||""};
-  // ส่งด้วย form ไปยัง iframe ซ่อนอยู่: ไม่ติดข้อจำกัด CORS ของ Apps Script
-  const frameName="sheet_sink_"+Date.now();
-  const frame=document.createElement("iframe");
-  frame.name=frameName;
-  frame.style.display="none";
+  // Beacon ส่ง JSON ต่อได้แม้กำลังเริ่มดาวน์โหลดไฟล์ Word/PDF
+  const body=JSON.stringify(p);
+  let queued=false;
+  try{
+    queued=navigator.sendBeacon(
+      url,
+      new Blob([body],{type:"text/plain;charset=utf-8"})
+    );
+  }catch(e){}
 
-  const form=document.createElement("form");
-  form.method="POST";
-  form.action=url;
-  form.target=frameName;
-  form.style.display="none";
+  if(queued){
+    toast("📊 กำลังบันทึกข้อมูลลง Google Sheet");
+    return;
+  }
 
-  const input=document.createElement("input");
-  input.type="hidden";
-  input.name="payload";
-  input.value=JSON.stringify(p);
-  form.appendChild(input);
-
-  document.body.append(frame,form);
-  form.submit();
-  setTimeout(()=>{form.remove();frame.remove();},10000);
-  toast("📊 กำลังบันทึกข้อมูลลง Google Sheet");
+  // สำรองสำหรับเบราว์เซอร์ที่ไม่รองรับ Beacon
+  fetch(url,{method:"POST",mode:"no-cors",keepalive:true,
+    headers:{"Content-Type":"text/plain;charset=utf-8"},body})
+    .then(()=>toast("📊 กำลังบันทึกข้อมูลลง Google Sheet"))
+    .catch(()=>toast("⚠️ ส่งลง Google Sheet ไม่สำเร็จ — เช็คอินเทอร์เน็ต/URL"));
 }
 
 function exportDoc(){
