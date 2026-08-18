@@ -617,10 +617,28 @@ function sendToSheet(d){
     DRAIN:(d.DRAIN||"")+(d.DRAIN==="yes"&&d.DRAIN_DETAIL?" - "+d.DRAIN_DETAIL:""),
     EBL:d.EBL,COMPLICATION:d.COMPLICATION,
     SWAB:{corrected:"Corrected",incorrected:"Incorrected",na:"N/A"}[d.SWAB]||""};
-  fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},
-    body:JSON.stringify(p)})
-    .then(()=>toast("📊 ส่งข้อมูลลง Google Sheet แล้ว"))
-    .catch(()=>toast("⚠️ ส่งลง Google Sheet ไม่สำเร็จ — เช็คอินเทอร์เน็ต/URL"));
+  // ส่งด้วย form ไปยัง iframe ซ่อนอยู่: ไม่ติดข้อจำกัด CORS ของ Apps Script
+  const frameName="sheet_sink_"+Date.now();
+  const frame=document.createElement("iframe");
+  frame.name=frameName;
+  frame.style.display="none";
+
+  const form=document.createElement("form");
+  form.method="POST";
+  form.action=url;
+  form.target=frameName;
+  form.style.display="none";
+
+  const input=document.createElement("input");
+  input.type="hidden";
+  input.name="payload";
+  input.value=JSON.stringify(p);
+  form.appendChild(input);
+
+  document.body.append(frame,form);
+  form.submit();
+  setTimeout(()=>{form.remove();frame.remove();},10000);
+  toast("📊 กำลังบันทึกข้อมูลลง Google Sheet");
 }
 
 function exportDoc(){
