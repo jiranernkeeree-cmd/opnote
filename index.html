@@ -77,7 +77,7 @@
       <div><label>HN / ID</label><input type="text" id="HN" placeholder="Hospital number"></div>
       <div><label>AN</label><input type="text" id="AN"></div>
       <div><label>Age</label><input type="text" id="AGE"></div>
-      <div><label>Ward</label><input type="text" id="WARD"></div>
+      <div><label>Ward</label><select id="WARD" class="people"></select></div>
       <div><label>Date of operation</label><input type="date" id="DATE"></div>
       <div class="span2"><label>Time of operation (start – end)</label>
         <div style="display:flex;gap:8px;align-items:center">
@@ -420,6 +420,8 @@ const CB_IDS = ["CB_LA","CB_TIVA","CB_SB","CB_RB","CB_GA","CB_MAC","CB_OTHER_ANE
 /* ===== รายชื่อใน dropdown (เพิ่มเองได้ เก็บในเครื่อง) ===== */
 const LKEY = "opnote_lists_v1";
 const DEFAULT_LISTS = {
+  WARD:["หอผู้ป่วยศัลยกรรม","หอผู้ป่วยศัลยกรรมกระดูก","หอผู้ป่วยวิกฤติ","หอผู้ป่วยพิเศษ",
+    "หอผู้ป่วยอายุรกรรมชาย","หอผู้ป่วยอายุรกรรมหญิง","หอผู้ป่วยสูตินรีเวช","ห้องคลอด","ผู้ป่วยนอก"],
   SURGEON:["น.พ. ธีรินทร์ โชติเรืองประเสริฐ","น.พ. วิชญะ วงษ์พิทักษ์","น.พ. จิระ เนินคีรี",
     "พ.ญ. พิชชา ลิขิตผลจรูญ","พ.ญ. ณัฐพร มณีไพโรจน์","น.พ. ศวิษฐ์ ทนงกิจ",
     "น.พ. พงษ์พิริยะ ฟูประเสริฐ","น.พ. พรหมพร รัตนชินกร","น.พ. ก้องเกียรติ จุฬพุฒิพงษ์"],
@@ -506,7 +508,8 @@ function collect(){
   d.E_SIGN = signatureData();
   d.isOther = d.OP_TYPE === OTHER_LABEL || d.OP_TYPE === "";
   const baseOp = d.isOther ? d.OP_OTHER : d.OP_TYPE;
-  d.OPERATION = [baseOp, d.OP_DETAIL_SUFFIX].filter(Boolean).join(" ").trim();
+  const suffix = d.isOther ? "" : d.OP_DETAIL_SUFFIX; // Other = ไม่ใช้ช่องรายละเอียดเพิ่มเติม
+  d.OPERATION = [baseOp, suffix].filter(Boolean).join(" ").trim();
   return d;
 }
 
@@ -920,7 +923,9 @@ function clearForm(){
 
 /* ===== init ===== */
 function toggleOther(){
-  $("opOtherWrap").style.display = ($("OP_TYPE").value === OTHER_LABEL) ? "" : "none";
+  const isOther = $("OP_TYPE").value === OTHER_LABEL;
+  $("opOtherWrap").style.display = isOther ? "" : "none";
+  $("OP_DETAIL_SUFFIX").style.display = isOther ? "none" : ""; // ซ่อนช่องรายละเอียดเพิ่มเติมเมื่อเลือก Other
 }
 (function init(){
   PEOPLE_IDS.forEach(id=>{
