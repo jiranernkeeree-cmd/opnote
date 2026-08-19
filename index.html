@@ -211,6 +211,10 @@
     <div style="margin-top:10px">
       <label>Web App URL (จาก Google Apps Script)</label>
       <input type="text" id="SHEET_URL" placeholder="https://script.google.com/macros/s/…/exec">
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="ghost" style="padding:6px 12px;font-size:13px" onclick="testSheet()">🔌 ทดสอบการเชื่อมต่อ</button>
+        <span id="SHEET_TEST_RESULT" style="font-size:13px"></span>
+      </div>
       <div class="hint">วิธีตั้งค่า: สร้าง Google Sheet ใหม่ → เมนู Extensions → Apps Script → วางโค้ดจากไฟล์ <b>opnote_sheet_webapp.gs</b> → Deploy → New deployment → Web app (Execute as: <b>Me</b>, Who has access: <b>Anyone</b>) → คัดลอก URL มาวางที่นี่ • เมื่อกด Export ทุกครั้ง ข้อมูลจะถูกเพิ่มเป็นแถวใหม่ใน Sheet อัตโนมัติ (ต้องต่ออินเทอร์เน็ต) • เว้นว่างไว้ = ไม่บันทึกลง Sheet</div>
     </div>
   </details>
@@ -652,10 +656,8 @@ function toast(msg){
   const t=$("toast"); t.textContent=msg; t.style.display="block";
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>{t.style.display="none";},4000);
 }
-function sendToSheet(d){
-  const url=getSheetUrl();
-  if(!url) return;
-  const p={Timestamp:new Date().toLocaleString("th-TH"),
+function buildSheetPayload(d){
+  return {Timestamp:new Date().toLocaleString("th-TH"),
     PATIENT_NAME:d.PATIENT_NAME,HN:d.HN,AN:d.AN,AGE:d.AGE,WARD:d.WARD,
     DATE:d.DATE,TIME_START:d.TIME_START,TIME_END:d.TIME_END,
     OPERATION:d.OPERATION,PRE_OP_DX:d.PRE_OP_DX,POST_OP_DX:d.POST_OP_DX,
@@ -671,26 +673,58 @@ function sendToSheet(d){
     DRAIN:(d.DRAIN||"")+(d.DRAIN==="yes"&&d.DRAIN_DETAIL?" - "+d.DRAIN_DETAIL:""),
     EBL:d.EBL,COMPLICATION:d.COMPLICATION,
     SWAB:{corrected:"Corrected",incorrected:"Incorrected",na:"N/A"}[d.SWAB]||""};
-  // Beacon ส่ง JSON ต่อได้แม้กำลังเริ่มดาวน์โหลดไฟล์ Word/PDF
-  const body=JSON.stringify(p);
-  let queued=false;
-  try{
-    queued=navigator.sendBeacon(
-      url,
-      new Blob([body],{type:"text/plain;charset=utf-8"})
-    );
-  }catch(e){}
+}
 
-  if(queued){
-    toast("📊 กำลังบันทึกข้อมูลลง Google Sheet");
-    return;
-  }
+/* ยิงข้อมูลไปยัง Apps Script แล้ว "อ่านผลจริง" กลับมา (ไม่เดาว่าสำเร็จ)
+   Apps Script /exec จะ 302 ไป googleusercontent ซึ่งตอบ CORS ให้ อ่าน text ได้ */
+function postToSheet(url, body){
+  return fetch(url,{method:"POST",mode:"cors",redirect:"follow",keepalive:true,
+    headers:{"Content-Type":"text/plain;charset=utf-8"},body}).then(r=>r.text());
+}
 
-  // สำรองสำหรับเบราว์เซอร์ที่ไม่รองรับ Beacon
-  fetch(url,{method:"POST",mode:"no-cors",keepalive:true,
-    headers:{"Content-Type":"text/plain;charset=utf-8"},body})
-    .then(()=>toast("📊 กำลังบันทึกข้อมูลลง Google Sheet"))
-    .catch(()=>toast("⚠️ ส่งลง Google Sheet ไม่สำเร็จ — เช็คอินเทอร์เน็ต/URL"));
+function sendToSheet(d){
+  const url=getSheetUrl();
+  if(!url) return;
+  const body=JSON.stringify(buildSheetPayload(d));
+  postToSheet(url, body)
+    .then(txt=>{
+      const t=(txt||"").trim();
+      if(/^OK/i.test(t)) toast("✅ บันทึกลง Google Sheet แล้ว");
+      else toast("⚠️ Sheet ตอบกลับผิดปกติ: "+t.slice(0,140));
+    })
+    .catch(err=>{
+      // บราวเซอร์อ่านผลไม่ได้ (มัก CORS) — คำขอ "ถูกส่งไปแล้ว" server จึงมักเขียนแถวสำเร็จ
+      // ยิง beacon ซ้ำเป็นตาข่ายกันพลาด (เช่น หน้ากำลังดาวน์โหลด/ปิด)
+      let queued=false;
+      try{ queued=navigator.sendBeacon(url,new Blob([body],{type:"text/plain;charset=utf-8"})); }catch(e){}
+      toast(queued ? "📊 ส่งข้อมูลแล้ว (ยืนยันผลอัตโนมัติไม่ได้ — เช็คในชีต)"
+                   : "⚠️ ส่งลง Sheet ไม่สำเร็จ: "+err.message);
+    });
+}
+
+/* ปุ่มทดสอบการเชื่อมต่อในช่อง ⚙️ — เขียนแถว TEST 1 แถวแล้วรายงานผลจริง */
+function testSheet(){
+  const url=($("SHEET_URL").value||"").trim();
+  const out=$("SHEET_TEST_RESULT");
+  if(!url){ out.style.color="#b3261e"; out.textContent="⚠️ ยังไม่ได้ใส่ Web App URL"; return; }
+  out.style.color="#5b6b7d"; out.textContent="⏳ กำลังทดสอบ…";
+  const body=JSON.stringify({Timestamp:new Date().toLocaleString("th-TH"),
+    PATIENT_NAME:"🔧 TEST — ลบแถวนี้ได้", HN:"TEST", OPERATION:"connection test"});
+  postToSheet(url, body)
+    .then(txt=>{
+      const t=(txt||"").trim();
+      if(/^OK/i.test(t)){
+        out.style.color="#1a7f37";
+        out.textContent="✅ เชื่อมต่อสำเร็จ! เพิ่มแถว TEST ในชีตแล้ว — เปิดชีตเช็กได้ (ลบแถวนั้นทิ้งได้)";
+      }else{
+        out.style.color="#b3261e";
+        out.textContent="❌ Sheet ตอบกลับ: "+t.slice(0,180);
+      }
+    })
+    .catch(err=>{
+      out.style.color="#b3261e";
+      out.textContent="⚠️ ส่งคำขอแล้วแต่บราวเซอร์อ่านผลไม่ได้ ("+err.message+") — เปิดชีตดูว่ามีแถว TEST ไหม: ถ้ามี = ใช้งานได้จริง / ถ้าไม่มี = เช็ก URL, การ Deploy (Who has access = Anyone, Execute as = Me) และ redeploy เป็นเวอร์ชันใหม่";
+    });
 }
 
 function exportDoc(){
