@@ -232,7 +232,7 @@
     <summary style="cursor:pointer;font-weight:700;color:var(--blue-dark)">⚙️ เชื่อมต่อ Google Sheet (ตั้งค่าครั้งเดียวต่อเครื่อง)</summary>
     <div style="margin-top:10px">
       <label>Web App URL (จาก Google Apps Script)</label>
-      <input type="text" id="SHEET_URL" placeholder="https://script.google.com/macros/s/…/DEFAULT_SHEET_URL">
+      <input type="text" id="SHEET_URL" placeholder="https://script.google.com/macros/s/…/exec">
       <label style="margin-top:8px">รหัสสำหรับบันทึกข้อมูล (OPNOTE_KEY)</label>
       <input type="text" id="SHEET_KEY" autocomplete="off" placeholder="รหัสที่ตั้งไว้ใน Apps Script">
       <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -384,7 +384,7 @@ const OTHER_LABEL = "Other (เขียนขั้นตอนเอง)";
 /* ===== ตั้งค่าการเชื่อมต่อ Google Sheet =====
    ใส่ URL ของ Web App (Deploy แล้ว) ที่นี่ เพื่อให้ทุกเครื่องโหลด ICD-9 / template ได้ทันที
    (URL นี้เปิดให้ "อ่าน" รายการ ICD-9 และ template เท่านั้น — การบันทึกต้องใช้รหัส OPNOTE_KEY ที่กรอกในแต่ละเครื่อง) */
-const DEFAULT_SHEET_URL = "";
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbx35WefrupojGSybPVWONgAm1lfAJ1Kqn5uDsPt8eBEhdrUBol2Yox1nF1BbWdtMebY/exec";
 const SKEY = "opnote_sheet_url", KKEY = "opnote_sheet_key";
 const CACHE_KEY = "opnote_remote_cache_v1";      // ICD-9 + templates ล่าสุดที่โหลดได้ (ใช้ตอน offline)
 const OLD_TKEY = "opnote_custom_templates_v1";   // template แบบเดิมที่เก็บในเครื่อง (ไว้ย้ายขึ้น Sheet)
