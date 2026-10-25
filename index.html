@@ -43,6 +43,8 @@
   .primary:hover{background:var(--blue-dark)}
   .ghost{background:#fff;color:var(--blue);border:1.5px solid var(--blue)}
   .danger{background:#fff;color:#b3261e;border:1.5px solid #b3261e}
+  .signature-pad{display:block;width:100%;height:145px;background:#fff;border:1px solid var(--border);border-radius:6px;
+    cursor:crosshair;touch-action:none;}
   #previewPane{position:sticky;top:12px;min-width:0;max-width:100%;}
   #preview{background:#fff;border:1px solid var(--border);border-radius:10px;padding:28px 32px;
     min-height:400px;max-height:calc(100vh - 130px);overflow:auto;font-family:"Sarabun","TH Sarabun New",serif;font-size:14.5px;line-height:1.45;}
@@ -53,33 +55,51 @@
   #preview table{border-collapse:collapse;width:100%;margin-bottom:0;table-layout:fixed}
   #preview td{border:1px solid #444;padding:5px 8px;vertical-align:top;font-size:14px;overflow-wrap:break-word;word-wrap:break-word}
   .badge{background:#fff;color:var(--blue);border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700}
+  label.req::after{content:" *";color:#b3261e}
+  .invalid{outline:2px solid #b3261e !important;border-color:#b3261e !important;background:#fff6f5 !important}
+  .ac{position:relative}
+  .ac-list{position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--border);
+    border-radius:0 0 8px 8px;box-shadow:0 6px 18px rgba(20,40,70,.15);max-height:260px;overflow:auto;display:none}
+  .ac-item{padding:7px 10px;cursor:pointer;font-size:14px;display:flex;gap:10px;align-items:baseline}
+  .ac-item .code{font-weight:700;color:var(--blue-dark);min-width:46px;font-variant-numeric:tabular-nums}
+  .ac-item.active,.ac-item:hover{background:var(--accent)}
+  .ac-empty{padding:8px 10px;color:var(--muted);font-size:13px}
+  .op-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .op-row{display:flex;align-items:center;gap:8px;background:var(--accent);border:1px solid #c9daf3;border-radius:8px;padding:6px 8px 6px 10px;font-size:14px}
+  .op-row .code{font-weight:700;color:var(--blue-dark);font-variant-numeric:tabular-nums;min-width:46px}
+  .op-row .nm{flex:1;min-width:0}
+  .op-row button{padding:2px 9px;font-size:13px;border-radius:6px;background:#fff;color:#b3261e;border:1px solid #e3b5b1}
+  .sync{font-size:12.5px;margin-top:6px;color:var(--muted)}
 </style>
 </head>
 <body>
 <header>
   <h1>Operative Note Generator</h1>
-  <span class="sub">กรอกข้อมูล → Export เป็นไฟล์ Word (.doc) — เลือก Operation แล้วระบบใส่ขั้นตอนผ่าตัดมาตรฐานให้อัตโนมัติ</span>
+  <span class="sub">กรอกข้อมูล → Export เป็น PDF / พิมพ์ — เลือก Template แล้วระบบใส่ขั้นตอนผ่าตัดมาตรฐานให้อัตโนมัติ</span>
   <span class="badge" id="draftBadge" style="display:none">บันทึกแบบร่างอัตโนมัติแล้ว</span>
 </header>
 
 <div class="wrap">
 <div id="formPane">
+  <div class="btns" style="margin:0 0 14px">
+    <button class="danger" onclick="clearForm()">ล้างฟอร์ม</button>
+  </div>
 
   <div class="card">
     <h2>PATIENT &amp; STAFF</h2>
     <div class="grid4">
-      <div><label>Patient name</label><input type="text" id="PATIENT_NAME" placeholder="Full name"></div>
-      <div><label>HN / ID</label><input type="text" id="HN" placeholder="Hospital number"></div>
+      <div><label class="req">Patient name</label><input type="text" id="PATIENT_NAME" placeholder="Full name"></div>
+      <div><label class="req">HN / ID</label><input type="text" id="HN" placeholder="Hospital number"></div>
       <div><label>AN</label><input type="text" id="AN"></div>
       <div><label>Age</label><input type="text" id="AGE"></div>
-      <div><label>Ward</label><input type="text" id="WARD"></div>
-      <div><label>Date of operation</label><input type="date" id="DATE"></div>
-      <div class="span2"><label>Time of operation (start – end)</label>
+      <div><label>Ward</label><select id="WARD" class="people"></select></div>
+      <div><label class="req">Date of operation</label><input type="date" id="DATE"></div>
+      <div class="span2"><label class="req">Time of operation (start – end)</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input type="time" id="TIME_START"> – <input type="time" id="TIME_END">
         </div>
       </div>
-      <div><label>Surgeon</label><select id="SURGEON" class="people"></select></div>
+      <div><label class="req">Surgeon</label><select id="SURGEON" class="people"></select></div>
       <div><label>Anesthesiologist</label><select id="ANESTHESIOLOGIST" class="people"></select></div>
       <div><label>First Assistant</label><select id="FIRST_ASSISTANT" class="people"></select></div>
       <div><label>Second Assistant</label><select id="SECOND_ASSISTANT" class="people"></select></div>
@@ -87,6 +107,11 @@
       <div><label>Circulating Nurse</label><select id="CIRCULATE_NURSE" class="people"></select></div>
       <div><label>Anesthetist</label><select id="ANESTHETIST" class="people"></select></div>
       <div><label>Anesthesia type</label><select id="ANESTHESIA" class="people"></select></div>
+      <div class="full">
+        <label>E-sign (วาดลายเซ็นด้วยเมาส์หรือปลายนิ้ว)</label>
+        <canvas id="E_SIGN" class="signature-pad" width="1200" height="290"></canvas>
+        <button type="button" class="ghost" style="padding:6px 12px;font-size:13px;margin-top:6px" onclick="clearSignature()">ล้างลายเซ็น</button>
+      </div>
     </div>
     <div class="hint">ทุกช่องรายชื่อ: เลือก "＋ เพิ่มรายชื่อ…" ท้ายลิสต์เพื่อเพิ่มชื่อใหม่ — ชื่อจะถูกจำไว้ในเครื่องให้เลือกครั้งถัดไป</div>
   </div>
@@ -95,14 +120,25 @@
     <h2>OPERATION</h2>
     <div class="grid">
       <div class="full">
-        <label>Operation Type</label>
+        <label class="req">Operation (ICD-9)</label>
+        <div class="ac">
+          <input type="text" id="OP_SEARCH" autocomplete="off"
+                 placeholder="พิมพ์ชื่อ operation หรือรหัส ICD-9 เช่น chole, 51.23">
+          <div class="ac-list" id="OP_AC"></div>
+        </div>
+        <div class="op-list" id="OP_LIST"></div>
+        <div class="sync" id="OPS_STATUS"></div>
+      </div>
+      <div class="full">
+        <label>รายละเอียดเพิ่มเติม / operation ที่ไม่มีใน ICD-9</label>
+        <input type="text" id="OP_FREE" placeholder="เช่น c/o adhesiolysis หรือชื่อ operation ที่หาไม่เจอ">
+      </div>
+      <div class="full">
+        <label>Template ขั้นตอนผ่าตัด</label>
         <select id="OP_TYPE"></select>
       </div>
-      <div class="full" id="opOtherWrap" style="display:none">
-        <label>ระบุชื่อ Operation (กรณี Other)</label><input type="text" id="OP_OTHER" placeholder="เช่น Splenectomy">
-      </div>
       <div class="full"><label>Pre-Operative Diagnosis</label><input type="text" id="PRE_OP_DX"></div>
-      <div class="full"><label>Post-Operative Diagnosis</label><input type="text" id="POST_OP_DX"></div>
+      <div class="full"><label class="req">Post-Operative Diagnosis</label><input type="text" id="POST_OP_DX"></div>
     </div>
   </div>
 
@@ -149,13 +185,13 @@
           <input type="text" id="OTHER_ANES_DETAIL" style="width:180px" placeholder="ระบุ">
         </div>
       </div>
-      <div class="full"><label>Procedure (เลือก Operation แล้วขั้นตอนมาตรฐานจะถูกใส่ให้อัตโนมัติ — แก้ไขได้)</label><textarea id="OP_DETAIL" rows="7"></textarea>
+      <div class="full"><label>Procedure (เลือก Template แล้วขั้นตอนมาตรฐานจะถูกใส่ให้อัตโนมัติ — แก้ไขได้)</label><textarea id="OP_DETAIL" rows="7"></textarea>
         <div class="hint">คำว่า {Incision} {Findings} {Position} ในข้อความ จะถูกแทนด้วยข้อมูลจากช่องนั้นๆ ตอน export</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-          <button type="button" class="ghost" style="padding:6px 12px;font-size:13px" onclick="saveMyTemplate()">💾 บันทึกเป็น template ของฉัน</button>
-          <button type="button" class="ghost" style="padding:6px 12px;font-size:13px" onclick="resetTemplate()">↩ คืนค่า template เดิม</button>
+          <button type="button" class="ghost" style="padding:6px 12px;font-size:13px" onclick="saveMyTemplate()">💾 บันทึก template ลง Sheet</button>
+          <button type="button" class="ghost" style="padding:6px 12px;font-size:13px" onclick="resetTemplate()">↩ ลบ template ที่บันทึกไว้</button>
         </div>
-        <div class="hint">บันทึก template: ข้อความในช่อง Procedure จะถูกจำไว้ในเครื่อง — เลือก operation เดิมครั้งหน้าจะได้ template ที่แก้แล้ว (มี ★ ในลิสต์) • ถ้าเลือก Other แล้วพิมพ์ชื่อ operation ใหม่ก่อนบันทึก จะเพิ่มเป็น operation ใหม่ในลิสต์เลย</div>
+        <div class="hint">template ที่บันทึกจะเก็บใน Google Sheet (แท็บ Templates) — ใช้ร่วมกันได้ทุกเครื่อง (★ ในลิสต์) • จะถามชื่อ template ก่อนบันทึก: ใช้ชื่อเดิม = แก้ไขของเดิม, ตั้งชื่อใหม่ = เพิ่ม template ใหม่</div>
       </div>
       <div class="full"><label>Additional Notes</label><textarea id="ADDITIONAL_NOTES"></textarea></div>
       <div class="full"><label>Pre-op Antibiotics</label><input type="text" id="PREOP_ATB" placeholder="เช่น Cefazolin 2 g IV"></div>
@@ -170,8 +206,8 @@
       <div><label>Complication</label><input type="text" id="COMPLICATION" value="none"></div>
       <div class="full"><label>Swab Count</label>
         <div class="chks">
-          <label><input type="radio" name="SWAB" value="corrected"> Corrected</label>
-          <label><input type="radio" name="SWAB" value="incorrected"> Incorrected</label>
+          <label><input type="radio" name="SWAB" value="corrected"> Correct</label>
+          <label><input type="radio" name="SWAB" value="incorrected"> Incorrect</label>
           <label><input type="radio" name="SWAB" value="na"> N/A</label>
         </div>
       </div>
@@ -180,8 +216,6 @@
 
   <div class="btns">
     <button class="primary" onclick="printDoc()">🖨 Export PDF / พิมพ์</button>
-    <button class="ghost" onclick="exportDoc()">⬇ Export .doc</button>
-    <button class="danger" onclick="clearForm()">ล้างฟอร์ม</button>
     <label style="display:flex;align-items:center;gap:6px;font-weight:600;color:var(--muted);font-size:13px">ขนาดฟอนต์ตอนพิมพ์
       <select id="PRINT_SIZE" style="width:auto">
         <option value="13">13pt (ตามฟอร์ม)</option>
@@ -192,14 +226,22 @@
       </select>
     </label>
   </div>
-  <div class="hint">Export PDF: กดปุ่มแล้วในหน้าต่างพิมพ์เลือกเครื่องพิมพ์เป็น <b>"Save as PDF / บันทึกเป็น PDF"</b> — ได้ไฟล์ตามแบบฟอร์ม IPD-OR-019 • ไฟล์ .doc เปิดแก้ต่อใน Word ได้ • ข้อมูลบันทึกแบบร่างในเครื่องอัตโนมัติ</div>
+  <div class="hint">Export PDF: กดปุ่มแล้วในหน้าต่างพิมพ์เลือกเครื่องพิมพ์เป็น <b>"Save as PDF / บันทึกเป็น PDF"</b> — ได้ไฟล์ตามแบบฟอร์ม IPD-OR-019 • ข้อมูลบันทึกแบบร่างในเครื่องอัตโนมัติ</div>
 
-  <details class="card" style="margin-top:14px">
-    <summary style="cursor:pointer;font-weight:700;color:var(--blue-dark)">⚙️ บันทึกข้อมูลลง Google Sheet (ตั้งค่าครั้งเดียว)</summary>
+  <details class="card" style="margin-top:14px" id="settingsBox">
+    <summary style="cursor:pointer;font-weight:700;color:var(--blue-dark)">⚙️ เชื่อมต่อ Google Sheet (ตั้งค่าครั้งเดียวต่อเครื่อง)</summary>
     <div style="margin-top:10px">
       <label>Web App URL (จาก Google Apps Script)</label>
       <input type="text" id="SHEET_URL" placeholder="https://script.google.com/macros/s/…/exec">
-      <div class="hint">วิธีตั้งค่า: สร้าง Google Sheet ใหม่ → เมนู Extensions → Apps Script → วางโค้ดจากไฟล์ <b>opnote_sheet_webapp.gs</b> → Deploy → New deployment → Web app (Execute as: <b>Me</b>, Who has access: <b>Anyone</b>) → คัดลอก URL มาวางที่นี่ • เมื่อกด Export ทุกครั้ง ข้อมูลจะถูกเพิ่มเป็นแถวใหม่ใน Sheet อัตโนมัติ (ต้องต่ออินเทอร์เน็ต) • เว้นว่างไว้ = ไม่บันทึกลง Sheet</div>
+      <label style="margin-top:8px">รหัสสำหรับบันทึกข้อมูล (OPNOTE_KEY)</label>
+      <input type="text" id="SHEET_KEY" autocomplete="off" placeholder="รหัสที่ตั้งไว้ใน Apps Script">
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="ghost" style="padding:6px 12px;font-size:13px" onclick="testSheet()">🔌 ทดสอบการเชื่อมต่อ</button>
+        <button type="button" class="ghost" style="padding:6px 12px;font-size:13px" onclick="loadRemote(true)">🔄 โหลด ICD-9 / template ใหม่</button>
+        <button type="button" class="ghost" style="padding:6px 12px;font-size:13px;display:none" id="migrateBtn" onclick="migrateLocalTemplates()">⬆ ย้าย template เดิมในเครื่องขึ้น Sheet</button>
+        <span id="SHEET_TEST_RESULT" style="font-size:13px"></span>
+      </div>
+      <div class="hint">URL ใช้โหลดรายการ ICD-9 (จาก p4pSx) และ template • รหัส OPNOTE_KEY ใช้ตอนบันทึกเคสลง Sheet และบันทึก/ลบ template — ไม่มีรหัส = ใช้งานได้ แต่ไม่บันทึกอะไรลง Sheet • วิธีติดตั้งดูในไฟล์ <b>opnote_sheet_webapp.gs</b></div>
     </div>
   </details>
 
@@ -221,14 +263,13 @@ const OPS = {
 "Appendectomy":{slug:"appendectomy",steps:[
  "The abdomen was entered via {A}, with dissection deepened through subcutaneous tissue, fascia, and muscle layers to enter the peritoneal cavity.",
  "The appendix was identified.",
- " Findings were as mentioned above.",
- "The mesoappendix was clamped, divided, and ligated.", 
- "Appendiceal stump was double ligated and cautertized.",
+ "Findings were as mentioned above.",
+ "The mesoappendix was clamped, divided, and ligated.",
+ "Appendiceal stump was double ligated and cauterized.",
  "Bleeding was controlled.",
  "Sheath was closed with absorbable suture. Subcutaneous tissue and skin were closed in layers."]},
 "Laparoscopic Cholecystectomy":{slug:"lap-cholecystectomy",steps:[
- "Infraumbilical incision was made.",
- "Camera port was inserted and pneumoperitoneum was established.",
+ "The camera port was inserted via {A} and pneumoperitoneum was established.",
  "Other ports were inserted under direct vision.",
  "The gallbladder was identified: Findings were as mentioned above.",
  "Critical view of safety was obtained.",
@@ -297,7 +338,8 @@ const OPS = {
  "The defect was repaired using a synthetic mesh, fixed in place with sutures/tacks in a tension-free fashion; hemostasis was confirmed and layers were closed."]},
 "Mastectomy with ALND":{slug:"mastectomy-alnd",steps:[
  "The patient was placed in {P} position with the arm abducted.",
- "An elliptical incision was made encompassing the nipple-areolar complex and any prior biopsy site: {F}.",
+ "An elliptical incision was made encompassing the nipple-areolar complex and any prior biopsy site.",
+ "Findings were as mentioned above.",
  "Skin flaps were raised in the plane of the breast tissue, and the breast was excised off the pectoralis fascia.",
  "The axilla was opened and level I/II lymph nodes were dissected, with preservation of the long thoracic and thoracodorsal nerves.",
  "Hemostasis was achieved, a drain was placed, and the wound was closed in layers."]},
@@ -337,13 +379,65 @@ const OPS = {
  "Pus was evacuated and the cavity was explored digitally to break loculations; a sample was sent for culture as indicated.",
  "The cavity was irrigated with NSS; a drain/wick was placed as needed."]}
 };
-const OTHER_LABEL = "Other (ระบุเอง — ใช้แบบฟอร์มทั่วไป)";
+const OTHER_LABEL = "Other (เขียนขั้นตอนเอง)";
+
+/* ===== ตั้งค่าการเชื่อมต่อ Google Sheet =====
+   ใส่ URL ของ Web App (Deploy แล้ว) ที่นี่ เพื่อให้ทุกเครื่องโหลด ICD-9 / template ได้ทันที
+   (URL นี้เปิดให้ "อ่าน" รายการ ICD-9 และ template เท่านั้น — การบันทึกต้องใช้รหัส OPNOTE_KEY ที่กรอกในแต่ละเครื่อง) */
+const DEFAULT_SHEET_URL = "";
+const SKEY = "opnote_sheet_url", KKEY = "opnote_sheet_key";
+const CACHE_KEY = "opnote_remote_cache_v1";      // ICD-9 + templates ล่าสุดที่โหลดได้ (ใช้ตอน offline)
+const OLD_TKEY = "opnote_custom_templates_v1";   // template แบบเดิมที่เก็บในเครื่อง (ไว้ย้ายขึ้น Sheet)
 
 /* ===== helpers ===== */
 const $ = id => document.getElementById(id);
-const esc = s => String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
-const CHK = "☑", UNCHK = "☐"; // ☑ ☐
+const esc = s => String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/\n/g,"<br>");
+const CHK = "☑", UNCHK = "☐";
 const cb = on => on ? CHK : UNCHK;
+let signatureHasInk = false;
+let selectedOps = [];          // [{code, name}]
+let noteId = "";               // id ของโน้ตนี้ — ใช้กันแถวซ้ำใน Sheet เวลาพิมพ์ซ้ำ
+let remote = {ops:[], templates:{}, loadedAt:0};
+
+function newNoteId(){
+  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,8);
+}
+
+/* ===== ลายเซ็น (ไม่บันทึกลงเครื่อง — หายเมื่อปิดหน้า/ล้างฟอร์ม) ===== */
+function signatureData(){
+  return signatureHasInk ? $("E_SIGN").toDataURL("image/png") : "";
+}
+function signatureHtml(data){
+  return /^data:image\/png;base64,/.test(data||"")
+    ? `<img src="${data}" alt="E-sign" style="width:125pt;height:42pt;object-fit:contain;vertical-align:middle">`
+    : "____________________________";
+}
+function clearSignature(){
+  const canvas=$("E_SIGN");
+  canvas.getContext("2d").clearRect(0,0,canvas.width,canvas.height);
+  signatureHasInk=false;
+  renderPreview();
+}
+function setupSignature(){
+  const canvas=$("E_SIGN"), ctx=canvas.getContext("2d");
+  ctx.strokeStyle="#111"; ctx.lineWidth=5; ctx.lineCap="round"; ctx.lineJoin="round";
+  let drawing=false, last;
+  const point=e=>{
+    const r=canvas.getBoundingClientRect();
+    return {x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};
+  };
+  canvas.addEventListener("pointerdown",e=>{
+    e.preventDefault(); drawing=true; last=point(e); canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove",e=>{
+    if(!drawing) return;
+    const next=point(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(next.x,next.y); ctx.stroke();
+    last=next; signatureHasInk=true;
+  });
+  const finish=()=>{ if(!drawing) return; drawing=false; renderPreview(); };
+  canvas.addEventListener("pointerup",finish);
+  canvas.addEventListener("pointercancel",finish);
+}
 
 function fmtDate(iso){
   if(!iso) return "";
@@ -351,38 +445,28 @@ function fmtDate(iso){
   return `${d}/${m}/${y}`;
 }
 
-const TEXT_IDS = ["PATIENT_NAME","HN","AN","AGE","WARD","DATE","TIME_START","TIME_END","OP_OTHER",
+const TEXT_IDS = ["PATIENT_NAME","HN","AN","AGE","WARD","DATE","TIME_START","TIME_END",
  "PRE_OP_DX","POST_OP_DX","SURGEON","FIRST_ASSISTANT","SECOND_ASSISTANT","SCRUB_NURSE","CIRCULATE_NURSE",
  "ANESTHESIOLOGIST","ANESTHETIST","ANESTHESIA","PATH_DETAIL","POSITION","APPROACH","FINDING",
- "OTHER_ANES_DETAIL","EBL","COMPLICATION","DRAIN_DETAIL","OP_DETAIL","ADDITIONAL_NOTES","OP_TYPE","PRINT_SIZE",
+ "OTHER_ANES_DETAIL","EBL","COMPLICATION","DRAIN_DETAIL","OP_DETAIL","ADDITIONAL_NOTES","OP_TYPE","OP_FREE","PRINT_SIZE",
  "PREOP_ATB","WOUND"];
 const CB_IDS = ["CB_LA","CB_TIVA","CB_SB","CB_RB","CB_GA","CB_MAC","CB_OTHER_ANES"];
 
 /* ===== รายชื่อใน dropdown (เพิ่มเองได้ เก็บในเครื่อง) ===== */
 const LKEY = "opnote_lists_v1";
 const DEFAULT_LISTS = {
+  WARD:["หอผู้ป่วยศัลยกรรม","หอผู้ป่วยศัลยกรรมกระดูก","หอผู้ป่วยวิกฤติ","หอผู้ป่วยพิเศษ",
+    "หอผู้ป่วยอายุรกรรมชาย","หอผู้ป่วยอายุรกรรมหญิง","หอผู้ป่วยสูตินรีเวช","ห้องคลอด","ผู้ป่วยนอก"],
   SURGEON:["น.พ. ธีรินทร์ โชติเรืองประเสริฐ","น.พ. วิชญะ วงษ์พิทักษ์","น.พ. จิระ เนินคีรี",
     "พ.ญ. พิชชา ลิขิตผลจรูญ","พ.ญ. ณัฐพร มณีไพโรจน์","น.พ. ศวิษฐ์ ทนงกิจ",
     "น.พ. พงษ์พิริยะ ฟูประเสริฐ","น.พ. พรหมพร รัตนชินกร","น.พ. ก้องเกียรติ จุฬพุฒิพงษ์"],
   ANESTHESIOLOGIST:["พญ.พนาภรณ์ คงมั่น","พญ.วรัญญา ธรรมวิทยากุล","พญ.สโรชา ศรีสวัสดิ์",
     "พญ.จุฑามาศ สิทัน","นพ.ชนิตพล อำพรวิชัย","พญ.อรพิมล ธนภูวนนท์"],
   OR_STAFF: [
-    "น.ส.ไปรยา โสวรรณะ",
-    "น.ส.นันท์ปภัทร์ ประวาฬ",
-    "น.ส.ปาริชาติ วินาโท",
-    "น.ส.อนุธิดา หงษาพันธ์",
-    "น.ส.วิภาวรรณ วัสสานกูล",
-    "น.ส.วริศรา เมืองชุมพล",
-    "น.ส.สุขิตา เครือแก้ว",
-    "นางมะลิวัลย์ สิงหบุตร",
-    "น.ส.บังอร นามะ",
-    "นางแพรวพรรณ กล้าดี",
-    "นายอัครัช ห่างไธสง",
-    "นางขวัญใจ คำประไพ",
-    "น.ส.อชิรญา กายดีสุด",
-    "น.ส.กิตติกานต์ อาจไธสง",
-    "น.ส.ณัฏฐณิชา เทพบุรี",
-    "น.ส.วงค์ชนก เสนาวงค์",
+    "น.ส.ไปรยา โสวรรณะ","น.ส.นันท์ปภัทร์ ประวาฬ","น.ส.ปาริชาติ วินาโท","น.ส.อนุธิดา หงษาพันธ์",
+    "น.ส.วิภาวรรณ วัสสานกูล","น.ส.วริศรา เมืองชุมพล","น.ส.สุขิตา เครือแก้ว","นางมะลิวัลย์ สิงหบุตร",
+    "น.ส.บังอร นามะ","นางแพรวพรรณ กล้าดี","นายอัครัช ห่างไธสง","นางขวัญใจ คำประไพ",
+    "น.ส.อชิรญา กายดีสุด","น.ส.กิตติกานต์ อาจไธสง","น.ส.ณัฏฐณิชา เทพบุรี","น.ส.วงค์ชนก เสนาวงค์",
     "น.ส.พรรณวษา โกษาแสง"],
   FIRST_ASSISTANT:[], SECOND_ASSISTANT:[],
   SCRUB_NURSE:[], CIRCULATE_NURSE:[],
@@ -423,7 +507,7 @@ function fillPeopleSelect(id, keepValue){
   lists[id].forEach(n=>mk(n,n));
   mk("__add__","＋ เพิ่มรายชื่อ…");
   if(cur && cur!=="__add__"){
-    if(![...sel.options].some(o=>o.value===cur)) mk(cur,cur); // ค่าจากแบบร่างที่ไม่อยู่ในลิสต์
+    if(![...sel.options].some(o=>o.value===cur)) mk(cur,cur);
     sel.value=cur;
   } else sel.value="";
 }
@@ -437,6 +521,79 @@ function handlePeopleChange(e){
   }
 }
 
+/* ===== Operation (ICD-9 จาก p4pSx) ===== */
+function opLine(o){ return `${o.name} (ICD-9 ${o.code})`; }
+function operationText(ops, free){
+  return [...ops.map(opLine), free].filter(Boolean).join("\n");
+}
+function renderOpList(){
+  const box=$("OP_LIST"); box.innerHTML="";
+  selectedOps.forEach((o,i)=>{
+    const row=document.createElement("div"); row.className="op-row";
+    row.innerHTML=`<span class="code">${esc(o.code)}</span><span class="nm">${esc(o.name)}</span>`;
+    const b=document.createElement("button"); b.type="button"; b.textContent="ลบ";
+    b.setAttribute("aria-label","ลบ "+o.name);
+    b.onclick=()=>{ selectedOps.splice(i,1); renderOpList(); renderPreview(); saveDraft(); };
+    row.appendChild(b); box.appendChild(row);
+  });
+}
+function addOp(o){
+  if(selectedOps.some(x=>x.code===o.code && x.name===o.name)){ toast("เพิ่ม operation นี้ไปแล้ว"); return; }
+  selectedOps.push({code:o.code, name:o.name});
+  $("OP_SEARCH").classList.remove("invalid");
+  renderOpList(); renderPreview(); saveDraft();
+}
+function searchOps(q){
+  q=q.trim().toLowerCase();
+  if(!q) return [];
+  const words=q.split(/\s+/);
+  const res=[];
+  for(const o of remote.ops){
+    const hay=(o.code+" "+o.name).toLowerCase();
+    if(words.every(w=>hay.includes(w))){
+      // ให้รหัสที่ขึ้นต้นตรงกับที่พิมพ์มาก่อน
+      const rank = o.code.startsWith(q) ? 0 : o.name.toLowerCase().startsWith(q) ? 1 : 2;
+      res.push([rank,o]);
+    }
+  }
+  res.sort((a,b)=>a[0]-b[0] || a[1].code.localeCompare(b[1].code, undefined, {numeric:true}));
+  return res.slice(0,40).map(r=>r[1]);
+}
+function setupOpSearch(){
+  const inp=$("OP_SEARCH"), list=$("OP_AC");
+  let items=[], active=-1;
+  const close=()=>{ list.style.display="none"; active=-1; };
+  const draw=()=>{
+    list.innerHTML="";
+    if(!remote.ops.length){
+      list.innerHTML='<div class="ac-empty">ยังไม่มีรายการ ICD-9 — ตั้งค่า Web App URL ใน ⚙️ ด้านล่าง หรือพิมพ์ในช่องรายละเอียดเพิ่มเติมแทน</div>';
+    } else if(!items.length){
+      list.innerHTML='<div class="ac-empty">ไม่พบ — พิมพ์ชื่อ operation ในช่อง “รายละเอียดเพิ่มเติม” แทนได้</div>';
+    }
+    items.forEach((o,i)=>{
+      const d=document.createElement("div");
+      d.className="ac-item"+(i===active?" active":"");
+      d.innerHTML=`<span class="code">${esc(o.code)}</span><span>${esc(o.name)}</span>`;
+      d.addEventListener("mousedown",e=>{ e.preventDefault(); pick(i); });
+      list.appendChild(d);
+    });
+    list.style.display="block";
+  };
+  const pick=i=>{ if(items[i]){ addOp(items[i]); inp.value=""; close(); inp.focus(); } };
+  inp.addEventListener("input",()=>{
+    if(!inp.value.trim()){ close(); return; }
+    items=searchOps(inp.value); active=items.length?0:-1; draw();
+  });
+  inp.addEventListener("keydown",e=>{
+    if(list.style.display!=="block") return;
+    if(e.key==="ArrowDown"){ e.preventDefault(); active=Math.min(items.length-1,active+1); draw(); }
+    else if(e.key==="ArrowUp"){ e.preventDefault(); active=Math.max(0,active-1); draw(); }
+    else if(e.key==="Enter"){ e.preventDefault(); pick(active); }
+    else if(e.key==="Escape"){ close(); }
+  });
+  inp.addEventListener("blur",()=>setTimeout(close,120));
+}
+
 function collect(){
   const d = {};
   TEXT_IDS.forEach(id => d[id] = $(id).value.trim());
@@ -444,23 +601,51 @@ function collect(){
   d.PATH  = (document.querySelector('input[name=PATH]:checked')||{}).value || "";
   d.DRAIN = (document.querySelector('input[name=DRAIN]:checked')||{}).value || "";
   d.SWAB  = (document.querySelector('input[name=SWAB]:checked')||{}).value || "";
-  d.isOther = d.OP_TYPE === OTHER_LABEL || d.OP_TYPE === "";
-  d.OPERATION = d.isOther ? d.OP_OTHER : d.OP_TYPE;
+  d.E_SIGN = signatureData();
+  d.OPS = selectedOps.slice();
+  d.OPERATION = operationText(d.OPS, d.OP_FREE);
+  d.ICD9 = d.OPS.map(o=>o.code).join(", ");
+  d.NOTE_ID = noteId;
   return d;
 }
 
-/* ===== สร้างเนื้อหาเอกสาร (โครงเดียวกับ Google Docs templates เดิม) ===== */
+/* ===== ตรวจช่องที่ต้องกรอกก่อนพิมพ์ ===== */
+const REQUIRED = [
+  ["PATIENT_NAME","Patient name"],["HN","HN"],["SURGEON","Surgeon"],["DATE","Date of operation"],
+  ["TIME_START","เวลาเริ่ม"],["TIME_END","เวลาสิ้นสุด"],["POST_OP_DX","Post-Operative Diagnosis"]
+];
+function validate(d){
+  document.querySelectorAll(".invalid").forEach(el=>el.classList.remove("invalid"));
+  const missing=[], els=[];
+  REQUIRED.forEach(([id,label])=>{ if(!d[id]){ missing.push(label); els.push($(id)); } });
+  if(!d.OPERATION){ missing.push("Operation"); els.push($("OP_SEARCH")); }
+  els.forEach(el=>el.classList.add("invalid"));
+  if(els.length){
+    els[0].scrollIntoView({behavior:"smooth",block:"center"});
+    setTimeout(()=>els[0].focus({preventScroll:true}),300);
+    toast("กรุณากรอก: "+missing.join(", "));
+  }
+  return !els.length;
+}
+
+/* ===== สร้างเนื้อหาเอกสาร ===== */
+/* ตรวจว่าเครื่องมีฟอนต์ TH Sarabun จริงไหม (วัดความกว้างตัวอักษรเทียบกับฟอนต์สำรอง —
+   document.fonts.check() ใช้ไม่ได้ เพราะตอบ true แม้ไม่มีฟอนต์) */
+let _thaiFont = null;
 function thaiFontAvailable(){
+  if(_thaiFont!==null) return _thaiFont;
   try{
-    return document.fonts.check('13pt "TH SarabunPSK"') ||
-           document.fonts.check('13pt "TH Sarabun New"') ||
-           document.fonts.check('13pt "Sarabun"');
-  }catch(e){ return true; }
+    const ctx=document.createElement("canvas").getContext("2d");
+    const txt="กขคงจฉชซ ABCdef 0123456789 ภาษาไทย";
+    const w=f=>{ ctx.font=`40px ${f}`; return ctx.measureText(txt).width; };
+    _thaiFont = ["TH SarabunPSK","TH Sarabun New","Sarabun"].some(name=>
+      ["monospace","serif"].some(base=> Math.abs(w(`"${name}",${base}`)-w(base))>0.5));
+  }catch(e){ _thaiFont=true; }
+  return _thaiFont;
 }
 function docFS(d, forPrint){
   let fs = parseInt(d.PRINT_SIZE)||13;
-  // ฟอนต์ตระกูล TH Sarabun ตัวเล็กกว่าฟอนต์ทั่วไปมาก — ถ้าเครื่องไม่มีฟอนต์นี้
-  // ให้ย่อขนาดอัตโนมัติเฉพาะตอนพิมพ์/PDF เพื่อไม่ให้ล้นหน้า (.doc ไม่ย่อ เพราะ Word มีฟอนต์)
+  // ฟอนต์ตระกูล TH Sarabun ตัวเล็กกว่าฟอนต์ทั่วไปมาก — ถ้าเครื่องไม่มีฟอนต์นี้ ให้ย่อขนาดตอนพิมพ์
   if(forPrint && !thaiFontAvailable()) fs = Math.max(8, Math.round(fs*0.75));
   return fs;
 }
@@ -488,11 +673,13 @@ function buildBody(d, FS=13){
 
   const drainTxt = d.DRAIN==="yes" ? ("Yes" + (d.DRAIN_DETAIL ? " — "+esc(d.DRAIN_DETAIL) : ""))
                  : d.DRAIN==="no" ? "No" : "";
-  const swabTxt = {corrected:"Corrected", incorrected:"Incorrected", na:"N/A"}[d.SWAB] || "";
+  const swabTxt = {corrected:"Correct", incorrected:"Incorrect", na:"N/A"}[d.SWAB] || "";
+  const eSignHtml = signatureHtml(d.E_SIGN);
 
-  const woundRow = (v,label,key)=> `${cb(d.WOUND===key)} ${label}`;
-  const dot = (v,n)=> v ? esc(v) : "-";
-  const FT = FS + 3; // ขนาดหัวเรื่อง = ตัวเนื้อหา +3pt
+  const woundRow = (label,key)=> `${cb(d.WOUND===key)} ${label}`;
+  const dot = v => v ? esc(v) : "-";
+  const FT = FS + 3;
+  const opHtml = d.OPERATION ? (d.OPS.length+(d.OP_FREE?1:0) > 1 ? "<br>"+esc(d.OPERATION) : esc(d.OPERATION)) : "-";
 
   return `
 <p style="text-align:center;font-size:${FT}pt;margin:0"><b>โรงพยาบาลเฉลิมพระเกียรติสมเด็จพระเทพรัตนราชสุดา ฯ สยามบรมราชกุมารี ระยอง</b></p>
@@ -502,55 +689,55 @@ function buildBody(d, FS=13){
 <table style="border-collapse:collapse;width:100%" border="1" cellspacing="0" cellpadding="5">
  <tr>
   <td style="width:62%;vertical-align:top">
-    Pre-Operative Diagnosis : ${dot(d.PRE_OP_DX,45)}<br>
-    Post-Operative Diagnosis : ${dot(d.POST_OP_DX,44)}<br>
-    Operation : ${dot(d.OPERATION,55)}
+    Pre-Operative Diagnosis : ${dot(d.PRE_OP_DX)}<br>
+    Post-Operative Diagnosis : ${dot(d.POST_OP_DX)}<br>
+    Operation : ${opHtml}
   </td>
-  <td style="width:38%;vertical-align:top">
-    Date ${dot(fmtDate(d.DATE),30)}<br>
+  <td rowspan="2" style="width:38%;vertical-align:top">
+    Date ${dot(fmtDate(d.DATE))}<br>
     Time ${d.TIME_START||d.TIME_END ? esc(d.TIME_START)+" - "+esc(d.TIME_END) : "-"}<br>
-    Surgeon ${dot(d.SURGEON,26)}<br>
-    Anesthesiologist ${dot(d.ANESTHESIOLOGIST,20)}<br>
-    First Assistant ${dot(d.FIRST_ASSISTANT,22)}<br>
-    Second Assistant ${dot(d.SECOND_ASSISTANT,20)}<br>
-    Scrub Nurse ${dot(d.SCRUB_NURSE,24)}<br>
-    Circulate Nurse ${dot(d.CIRCULATE_NURSE,21)}<br>
-    Anesthetist ${dot(d.ANESTHETIST,24)}<br>
-    Anesthesia ${dot(d.ANESTHESIA,25)}
+    Surgeon ${dot(d.SURGEON)}<br>
+    Anesthesiologist ${dot(d.ANESTHESIOLOGIST)}<br>
+    First Assistant ${dot(d.FIRST_ASSISTANT)}<br>
+    Second Assistant ${dot(d.SECOND_ASSISTANT)}<br>
+    Scrub Nurse ${dot(d.SCRUB_NURSE)}<br>
+    Circulate Nurse ${dot(d.CIRCULATE_NURSE)}<br>
+    Anesthetist ${dot(d.ANESTHETIST)}<br>
+    Anesthesia ${dot(d.ANESTHESIA)}
   </td>
  </tr>
  <tr>
   <td style="vertical-align:top">
     <b>Wound Classification</b><br>
-    ${woundRow(d,"Clean Wound","clean")}&nbsp;&nbsp;&nbsp;&nbsp;${woundRow(d,"Clean Contaminated Wound","clean_contam")}<br>
-    ${woundRow(d,"Contaminated Wound","contam")}&nbsp;&nbsp;&nbsp;&nbsp;${woundRow(d,"Dirty/Infected Wound","dirty")}
+    ${woundRow("Clean Wound","clean")}&nbsp;&nbsp;&nbsp;&nbsp;${woundRow("Clean Contaminated Wound","clean_contam")}<br>
+    ${woundRow("Contaminated Wound","contam")}&nbsp;&nbsp;&nbsp;&nbsp;${woundRow("Dirty/Infected Wound","dirty")}
   </td>
-  <td style="vertical-align:top">&nbsp;</td>
  </tr>
  <tr>
   <td colspan="2" style="vertical-align:top">
-    <b>Pathology</b>&nbsp;&nbsp;&nbsp;${cb(d.PATH==="no")} No&nbsp;&nbsp;&nbsp;${cb(d.PATH==="yes")} Yes ${dot(d.PATH_DETAIL,60)}
+    <b>Pathology</b>&nbsp;&nbsp;&nbsp;${cb(d.PATH==="no")} No&nbsp;&nbsp;&nbsp;${cb(d.PATH==="yes")} Yes ${dot(d.PATH_DETAIL)}
   </td>
  </tr>
 </table>
 <div style="border:0.75pt solid black;border-top:none;padding:3pt 6pt;overflow-wrap:break-word;word-wrap:break-word">
-    Position : ${dot(d.POSITION,80)}<br>
-    Approach : ${dot(d.APPROACH,79)}<br>
-    Finding :<br>
+    <u>Position</u> : ${dot(d.POSITION)}<br>
+    <u>Approach</u> : ${dot(d.APPROACH)}<br>
+    <u>Findings</u> :<br>
     ${esc(d.FINDING) || "-"}<br>
-    Pre-op antibiotics : ${esc(d.PREOP_ATB)}<br>
-    Procedure :<br>
+    <u>Pre-op antibiotics</u> : ${esc(d.PREOP_ATB)}<br>
+    <u>Procedure</u> :<br>
     ${anesLine}<br>
     ${procHtml}<br>
     <br>
-    Additional Notes : ${esc(d.ADDITIONAL_NOTES)}<br>
-    Drain : ${drainTxt}<br>
-    EBL : ${esc(d.EBL)} ml<br>
-    Complication : ${esc(d.COMPLICATION)}<br>
-    Swab count : ${swabTxt}
+    <u>Additional Notes</u> : ${esc(d.ADDITIONAL_NOTES)}<br>
+    <u>Drain</u> : ${drainTxt}<br>
+    <u>EBL</u> : ${esc(d.EBL)} ml<br>
+    <u>Complication</u> : ${esc(d.COMPLICATION)}<br>
+    <u>Swab count</u> : ${swabTxt}
     <div style="page-break-inside:avoid">
       <p style="text-align:right;margin:6pt 40pt 2pt 0">Surgeon -</p>
-      <p style="text-align:right;margin:2pt 40pt 2pt 0">(${dot(d.SURGEON,40)})</p>
+      <p style="text-align:right;margin:2pt 40pt 2pt 0">(${dot(d.SURGEON)})</p>
+      <p style="text-align:right;margin:2pt 40pt 2pt 0">E-sign: ${eSignHtml}</p>
     </div>
 </div>
 <p style="margin:4pt 0;font-size:${FT-4}pt">HN: ${esc(d.HN)}&nbsp;&nbsp;&nbsp;AN: ${esc(d.AN)}&nbsp;&nbsp;&nbsp;${esc(d.PATIENT_NAME)}&nbsp;&nbsp;&nbsp;Age: ${esc(d.AGE)}&nbsp;&nbsp;&nbsp;Ward: ${esc(d.WARD)}</p>`;
@@ -558,13 +745,9 @@ function buildBody(d, FS=13){
 
 function buildDocHtml(d, forPrint=false){
   const FS = docFS(d, forPrint);
-  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8"><title>Operative Note</title>
-<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+  return `<html><head><meta charset="utf-8"><title>Operative Note</title>
 <style>
 @page {size:A4; margin:36pt;}
-@page Section1 {size:595.3pt 841.9pt; margin:36pt 36pt 36pt 36pt;}
-div.Section1 {page:Section1;}
 body {font-family:"TH SarabunPSK","TH Sarabun New","Sarabun","Angsana New",sans-serif; font-size:${FS}pt; line-height:1.3; margin:0;}
 table {border-collapse:collapse; width:100%; table-layout:fixed;}
 table,td {border:0.75pt solid black; font-size:${FS}pt;}
@@ -574,33 +757,42 @@ p,div {orphans:2; widows:2;}
 <body><div class="Section1">${buildBody(d, FS)}</div></body></html>`;
 }
 
-/* ===== actions ===== */
-function fileName(d){
-  const op = OPS[d.OP_TYPE] ? OPS[d.OP_TYPE].slug : (d.OPERATION? d.OPERATION.replace(/[^\wก-๙-]+/g,"-").toLowerCase() : "operative-note");
-  const date = d.DATE || new Date().toISOString().slice(0,10);
-  const hn = d.HN || "noHN";
-  return `OpNote_${hn}_${date}_${op}.doc`;
-}
-
-/* ===== ส่งข้อมูลลง Google Sheet ผ่าน Apps Script Web App ===== */
-const SKEY = "opnote_sheet_url";
-const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbx5qEjHkwxgSzvqwWuHiDv6QC10mpYoOVo8-g96NpIKFBSry3FAZuuhJZ8qBTTmBFFX/exec";
+/* ===== Google Sheet (Apps Script Web App) ===== */
 function getSheetUrl(){
   const v = localStorage.getItem(SKEY);
-  return (v===null ? DEFAULT_SHEET_URL : v).trim(); // เคยลบทิ้งเอง = ปิดการส่ง
+  return (v===null ? DEFAULT_SHEET_URL : v).trim();
 }
+function getSheetKey(){ return (localStorage.getItem(KKEY)||"").trim(); }
+
 let toastTimer = null;
 function toast(msg){
   const t=$("toast"); t.textContent=msg; t.style.display="block";
-  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{t.style.display="none";},4000);
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{t.style.display="none";},4500);
 }
-function sendToSheet(d){
-  const url=getSheetUrl();
-  if(!url) return;
-  const p={Timestamp:new Date().toLocaleString("th-TH"),
+
+/* POST ไป Apps Script แล้วอ่านผลจริง (ไม่ยิงซ้ำ — server ใช้ NOTE_ID กันแถวซ้ำอยู่แล้ว) */
+function postAction(action, data){
+  const url=getSheetUrl(), key=getSheetKey();
+  if(!url) return Promise.reject(new Error("ยังไม่ได้ตั้งค่า Web App URL"));
+  if(!key) return Promise.reject(new Error("ยังไม่ได้ใส่รหัส OPNOTE_KEY"));
+  return fetch(url,{method:"POST",redirect:"follow",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action, key, data})})
+    .then(r=>r.text())
+    .then(t=>{
+      let j; try{ j=JSON.parse(t); }catch(e){ throw new Error("Sheet ตอบกลับผิดรูปแบบ: "+t.slice(0,120)); }
+      if(!j.ok) throw new Error(j.error||"ไม่ทราบสาเหตุ");
+      return j;
+    });
+}
+
+function buildSheetPayload(d){
+  return {Timestamp:new Date().toLocaleString("th-TH"),
+    NOTE_ID:d.NOTE_ID,
     PATIENT_NAME:d.PATIENT_NAME,HN:d.HN,AN:d.AN,AGE:d.AGE,WARD:d.WARD,
     DATE:d.DATE,TIME_START:d.TIME_START,TIME_END:d.TIME_END,
-    OPERATION:d.OPERATION,PRE_OP_DX:d.PRE_OP_DX,POST_OP_DX:d.POST_OP_DX,
+    OPERATION:d.OPERATION,ICD9:d.ICD9,TEMPLATE:d.OP_TYPE,
+    PRE_OP_DX:d.PRE_OP_DX,POST_OP_DX:d.POST_OP_DX,
     SURGEON:d.SURGEON,ANESTHESIOLOGIST:d.ANESTHESIOLOGIST,
     FIRST_ASSISTANT:d.FIRST_ASSISTANT,SECOND_ASSISTANT:d.SECOND_ASSISTANT,
     SCRUB_NURSE:d.SCRUB_NURSE,CIRCULATE_NURSE:d.CIRCULATE_NURSE,
@@ -612,73 +804,60 @@ function sendToSheet(d){
     PREOP_ATB:d.PREOP_ATB,PROCEDURE:d.OP_DETAIL,ADDITIONAL_NOTES:d.ADDITIONAL_NOTES,
     DRAIN:(d.DRAIN||"")+(d.DRAIN==="yes"&&d.DRAIN_DETAIL?" - "+d.DRAIN_DETAIL:""),
     EBL:d.EBL,COMPLICATION:d.COMPLICATION,
-    SWAB:{corrected:"Corrected",incorrected:"Incorrected",na:"N/A"}[d.SWAB]||""};
-  fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},
-    body:JSON.stringify(p)})
-    .then(()=>toast("📊 ส่งข้อมูลลง Google Sheet แล้ว"))
-    .catch(()=>toast("⚠️ ส่งลง Google Sheet ไม่สำเร็จ — เช็คอินเทอร์เน็ต/URL"));
+    SWAB:{corrected:"Correct",incorrected:"Incorrect",na:"N/A"}[d.SWAB]||""};
 }
 
-function exportDoc(){
-  const d = collect();
-  const html = buildDocHtml(d);
-  const blob = new Blob(["﻿"+html], {type:"application/msword;charset=utf-8"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = fileName(d);
-  document.body.appendChild(a); a.click();
-  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 800);
-  sendToSheet(d);
+function sendToSheet(d){
+  if(!getSheetUrl() || !getSheetKey()) return;   // ไม่ได้ตั้งค่า = ไม่ส่ง
+  postAction("record", buildSheetPayload(d))
+    .then(j=> toast(j.updated ? "✅ อัปเดตแถวเดิมใน Google Sheet แล้ว" : "✅ บันทึกลง Google Sheet แล้ว"))
+    .catch(err=> toast("⚠️ บันทึกลง Sheet ไม่สำเร็จ: "+err.message));
 }
 
-function printDoc(){
-  const d = collect();
-  // พิมพ์ผ่าน iframe ที่ซ่อนไว้ -> ขึ้นเฉพาะหน้าต่าง Print ไม่เปิดแท็บใหม่
-  const old = document.getElementById("printFrame");
-  if(old) old.remove();
-  const f = document.createElement("iframe");
-  f.id = "printFrame";
-  f.setAttribute("aria-hidden","true");
-  f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
-  document.body.appendChild(f);
-
-  let done = false;
-  const go = () => {
-    if(done) return; done = true;
-    try{
-      const win = f.contentWindow;
-      win.focus();
-      win.onafterprint = () => setTimeout(()=>f.remove(), 300);
-      win.print();
-      setTimeout(()=>{ if(document.getElementById("printFrame")) f.remove(); }, 60000);
-    }catch(e){
-      toast("พิมพ์ไม่สำเร็จ: " + e.message);
-      f.remove();
-    }
-  };
-  f.onload = () => setTimeout(go, 120);
-
-  const doc = f.contentWindow.document;
-  doc.open();
-  doc.write(buildDocHtml(d, true));
-  doc.close();
-  setTimeout(go, 800); // สำรองกรณี onload ไม่ยิง
-  sendToSheet(d);
+function testSheet(){
+  const out=$("SHEET_TEST_RESULT");
+  out.style.color="#5b6b7d"; out.textContent="⏳ กำลังทดสอบ…";
+  postAction("ping",{})
+    .then(()=>{ out.style.color="#1a7f37"; out.textContent="✅ เชื่อมต่อได้ และรหัสถูกต้อง (ไม่มีการเขียนข้อมูล)"; loadRemote(true); })
+    .catch(err=>{ out.style.color="#b3261e"; out.textContent="❌ "+err.message; });
 }
 
-function renderPreview(){
-  $("preview").innerHTML = buildBody(collect());
+/* ===== โหลด ICD-9 + templates จาก Sheet ===== */
+function applyRemote(r){
+  remote = {ops:r.ops||[], templates:r.templates||{}, loadedAt:r.loadedAt||0};
+  rebuildOpSelect();
+}
+function setOpsStatus(msg, bad){
+  const el=$("OPS_STATUS"); el.textContent=msg; el.style.color = bad ? "#b3261e" : "";
+}
+function loadRemote(manual){
+  const url=getSheetUrl();
+  if(!url){
+    setOpsStatus("ยังไม่ได้ตั้งค่า Web App URL (⚙️ ด้านล่าง) — ใช้ช่องรายละเอียดเพิ่มเติมแทนได้", true);
+    return Promise.resolve();
+  }
+  setOpsStatus("⏳ กำลังโหลดรายการ ICD-9 และ template…");
+  return fetch(url+(url.includes("?")?"&":"?")+"action=init",{redirect:"follow"})
+    .then(r=>r.text())
+    .then(t=>{
+      const j=JSON.parse(t);
+      if(!j.ok) throw new Error(j.error||"โหลดไม่สำเร็จ");
+      const tpl={}; (j.templates||[]).forEach(x=>{ if(x.name) tpl[x.name]=x.text||""; });
+      const r={ops:j.ops||[], templates:tpl, loadedAt:Date.now()};
+      localStorage.setItem(CACHE_KEY, JSON.stringify(r));
+      applyRemote(r);
+      setOpsStatus(`ICD-9 ${r.ops.length} รายการ • template ใน Sheet ${Object.keys(tpl).length} รายการ`);
+      if(manual) toast("🔄 โหลดข้อมูลจาก Sheet แล้ว");
+    })
+    .catch(err=>{
+      const age = remote.loadedAt ? " (ใช้ข้อมูลที่เก็บไว้เมื่อ "+new Date(remote.loadedAt).toLocaleString("th-TH")+")" : "";
+      setOpsStatus("⚠️ โหลดจาก Sheet ไม่สำเร็จ: "+err.message+age, true);
+    });
 }
 
-/* ===== prefill Procedure จาก template ของ operation ที่เลือก ===== */
+/* ===== Templates ===== */
 let lastAutoFill = "";
-
-/* template ที่ user บันทึกเอง (เก็บใน localStorage) */
-const TKEY = "opnote_custom_templates_v1";
-function getTemplates(){
-  try{ return JSON.parse(localStorage.getItem(TKEY)||"{}"); }catch(e){ return {}; }
-}
-function setTemplates(t){ localStorage.setItem(TKEY, JSON.stringify(t)); }
+function getTemplates(){ return remote.templates || {}; }
 
 function stepsText(name){
   const custom = getTemplates();
@@ -696,117 +875,232 @@ function rebuildOpSelect(val){
   const custom = getTemplates();
   sel.innerHTML = "";
   const mk=(v,t)=>{const o=document.createElement("option");o.value=v;o.textContent=t;sel.appendChild(o);};
-  mk("","— เลือก Operation —");
+  mk("","— เลือก Template —");
   Object.keys(OPS).forEach(name=> mk(name, custom[name]!==undefined ? "★ "+name : name));
   Object.keys(custom).filter(n=> !OPS[n] && n!==OTHER_LABEL).sort()
     .forEach(name=> mk(name, "★ "+name));
   mk(OTHER_LABEL, OTHER_LABEL);
-  if(cur && [...sel.options].some(o=>o.value===cur)) sel.value=cur; else sel.value="";
+  if(cur && ![...sel.options].some(o=>o.value===cur)) mk(cur, cur);   // ค่าจากแบบร่างที่ยังโหลด template ไม่ทัน
+  sel.value = cur || "";
 }
 
 function saveMyTemplate(){
-  const opSel = $("OP_TYPE").value;
-  const name = opSel===OTHER_LABEL ? $("OP_OTHER").value.trim() : opSel;
-  if(!name){ alert("เลือก Operation ก่อน (กรณี Other ให้พิมพ์ชื่อ operation ด้วย)"); return; }
   const text = $("OP_DETAIL").value;
   if(!text.trim()){ alert("ช่อง Procedure ยังว่างอยู่"); return; }
-  const t = getTemplates(); t[name] = text; setTemplates(t);
-  rebuildOpSelect(name); toggleOther();
-  lastAutoFill = text;
-  toast('💾 บันทึก template "'+name+'" แล้ว — ใช้ได้ทุกครั้งที่เลือก operation นี้');
-  renderPreview(); saveDraft();
+  const cur = $("OP_TYPE").value;
+  const suggest = (cur && cur!==OTHER_LABEL) ? cur : "";
+  const name = (prompt("ชื่อ template (ใช้ชื่อเดิม = แก้ไขของเดิม, ตั้งชื่อใหม่ = เพิ่ม template ใหม่):", suggest)||"").trim();
+  if(!name) return;
+  if(name===OTHER_LABEL){ alert("ใช้ชื่อนี้ไม่ได้ กรุณาตั้งชื่ออื่น"); return; }
+  postAction("saveTemplate",{name, text})
+    .then(()=>{
+      remote.templates[name]=text;
+      localStorage.setItem(CACHE_KEY, JSON.stringify(remote));
+      rebuildOpSelect(name); lastAutoFill=text;
+      toast('💾 บันทึก template "'+name+'" ลง Sheet แล้ว — ใช้ได้ทุกเครื่อง');
+      renderPreview(); saveDraft();
+    })
+    .catch(err=> alert("บันทึก template ไม่สำเร็จ: "+err.message));
 }
 
 function resetTemplate(){
   const name = $("OP_TYPE").value;
-  const t = getTemplates();
-  if(!name || t[name]===undefined){ toast("operation นี้ยังไม่มี template ที่บันทึกเอง"); return; }
-  if(!confirm('ลบ template ที่บันทึกเองของ "'+name+'" และคืนค่า template เดิม?')) return;
-  delete t[name]; setTemplates(t);
-  if(OPS[name]){
-    rebuildOpSelect(name);
-    $("OP_DETAIL").value = stepsText(name);
-  } else {
-    rebuildOpSelect("");
-    $("OP_DETAIL").value = "";
-  }
-  lastAutoFill = $("OP_DETAIL").value;
-  toggleOther(); renderPreview(); saveDraft();
-  toast("↩ คืนค่า template เดิมแล้ว");
+  if(!name || getTemplates()[name]===undefined){ toast("template นี้ยังไม่มีฉบับที่บันทึกใน Sheet"); return; }
+  const msg = OPS[name] ? 'ลบ template ที่บันทึกไว้ของ "'+name+'" และกลับไปใช้ template มาตรฐาน?'
+                        : 'ลบ template "'+name+'" ออกจาก Sheet? (ทุกเครื่องจะไม่เห็น template นี้อีก)';
+  if(!confirm(msg)) return;
+  postAction("deleteTemplate",{name})
+    .then(()=>{
+      delete remote.templates[name];
+      localStorage.setItem(CACHE_KEY, JSON.stringify(remote));
+      if(OPS[name]){ rebuildOpSelect(name); $("OP_DETAIL").value = stepsText(name); }
+      else { rebuildOpSelect(""); $("OP_DETAIL").value = ""; }
+      lastAutoFill = $("OP_DETAIL").value;
+      renderPreview(); saveDraft();
+      toast("↩ ลบ template ที่บันทึกไว้แล้ว");
+    })
+    .catch(err=> alert("ลบ template ไม่สำเร็จ: "+err.message));
 }
+
 function prefillProcedure(){
   const text = stepsText($("OP_TYPE").value);
   const cur = $("OP_DETAIL").value.trim();
   if(cur && cur !== lastAutoFill.trim()){
-    if(!confirm("แทนที่ข้อความในช่อง Procedure ด้วย template ของ operation ที่เลือก?")) return;
+    if(!confirm("แทนที่ข้อความในช่อง Procedure ด้วย template ที่เลือก?")) return;
   }
   $("OP_DETAIL").value = text;
   lastAutoFill = text;
 }
 
-/* ===== draft autosave ===== */
-const KEY = "opnote_draft_v2";
+/* template แบบเดิมที่เก็บไว้ในเครื่อง → ย้ายขึ้น Sheet */
+function oldLocalTemplates(){
+  try{ return JSON.parse(localStorage.getItem(OLD_TKEY)||"{}"); }catch(e){ return {}; }
+}
+function refreshMigrateBtn(){
+  $("migrateBtn").style.display = Object.keys(oldLocalTemplates()).length ? "" : "none";
+}
+async function migrateLocalTemplates(){
+  const old = oldLocalTemplates(), names = Object.keys(old);
+  if(!names.length) return;
+  if(!confirm("ย้าย template ในเครื่องนี้ "+names.length+" รายการขึ้น Sheet?\n"+names.join("\n"))) return;
+  let ok=0;
+  for(const n of names){
+    try{ await postAction("saveTemplate",{name:n, text:old[n]}); remote.templates[n]=old[n]; delete old[n]; ok++; }
+    catch(err){ alert('ย้าย "'+n+'" ไม่สำเร็จ: '+err.message); break; }
+  }
+  if(Object.keys(old).length) localStorage.setItem(OLD_TKEY, JSON.stringify(old));
+  else localStorage.removeItem(OLD_TKEY);
+  localStorage.setItem(CACHE_KEY, JSON.stringify(remote));
+  rebuildOpSelect(); refreshMigrateBtn();
+  toast("⬆ ย้าย template ขึ้น Sheet แล้ว "+ok+" รายการ");
+}
+
+/* ===== ย่อเนื้อหาอัตโนมัติให้พอดี A4 หน้าเดียวตอนพิมพ์ ===== */
+function fitOnePage(win){
+  try{
+    const doc = win.document;
+    const page = doc.querySelector(".Section1") || doc.body;
+    const PX = 96/72;
+    const availH = (841.9 - 72) * PX;
+    let scale = 1;
+    for(let i=0;i<5;i++){
+      const h = page.getBoundingClientRect().height;
+      if(h <= availH + 1) break;
+      scale = Math.max(0.4, scale * (availH / h) * 0.985);
+      doc.body.style.zoom = scale;
+      if(scale <= 0.4) break;
+    }
+  }catch(e){ /* browser ไม่รองรับ zoom ก็พิมพ์ตามปกติ */ }
+}
+
+function printDoc(){
+  const d = collect();
+  if(!validate(d)) return;
+  const old = document.getElementById("printFrame");
+  if(old) old.remove();
+  const f = document.createElement("iframe");
+  f.id = "printFrame";
+  f.setAttribute("aria-hidden","true");
+  f.style.cssText = "position:fixed;left:-10000px;top:0;width:698px;height:1100px;border:0;visibility:hidden";
+  document.body.appendChild(f);
+
+  let done = false;
+  const go = () => {
+    if(done) return; done = true;
+    try{
+      const win = f.contentWindow;
+      fitOnePage(win);
+      win.focus();
+      win.onafterprint = () => setTimeout(()=>f.remove(), 300);
+      win.print();
+      setTimeout(()=>{ if(document.getElementById("printFrame")) f.remove(); }, 60000);
+    }catch(e){
+      toast("พิมพ์ไม่สำเร็จ: " + e.message);
+      f.remove();
+    }
+  };
+  f.onload = () => {
+    const fonts = f.contentWindow.document.fonts;
+    (fonts && fonts.ready ? fonts.ready : Promise.resolve()).then(()=>setTimeout(go, 120));
+  };
+
+  const doc = f.contentWindow.document;
+  doc.open();
+  doc.write(buildDocHtml(d, true));
+  doc.close();
+  setTimeout(go, 800);
+  sendToSheet(d);
+}
+
+function renderPreview(){
+  $("preview").innerHTML = buildBody(collect());
+}
+
+/* ===== draft autosave (ไม่เก็บลายเซ็น, หมดอายุใน 24 ชม.) ===== */
+const KEY = "opnote_draft_v3";
+const DRAFT_TTL = 24*60*60*1000;
 function saveDraft(){
   const d = collect();
+  delete d.E_SIGN;
+  d.savedAt = Date.now();
   localStorage.setItem(KEY, JSON.stringify(d));
   $("draftBadge").style.display = "inline-block";
 }
 function loadDraft(){
+  localStorage.removeItem("opnote_draft_v2");   // แบบร่างรุ่นเก่า (มีลายเซ็นติดอยู่) — ลบทิ้ง
   const raw = localStorage.getItem(KEY);
   if(!raw) return;
   try{
     const d = JSON.parse(raw);
+    if(!d.savedAt || Date.now()-d.savedAt > DRAFT_TTL){ localStorage.removeItem(KEY); return; }
     TEXT_IDS.forEach(id => {
       if(d[id]===undefined) return;
       if(PEOPLE_IDS.includes(id)) fillPeopleSelect(id, d[id]);
+      else if(id==="OP_TYPE") rebuildOpSelect(d[id]);
       else $(id).value = d[id];
     });
     CB_IDS.forEach(id => { if(d[id]!==undefined) $(id).checked = d[id]; });
     ["PATH","DRAIN","SWAB"].forEach(g=>{
-      if(d[g]){ const el=document.querySelector(`input[name=${g}][value=${d[g]}]`); if(el) el.checked=true; }
+      if(d[g]){ const el=document.querySelector(`input[name=${g}][value="${d[g]}"]`); if(el) el.checked=true; }
     });
-    lastAutoFill = $("OP_DETAIL").value; // ถือว่าแบบร่างคือค่าเดิม ไม่ต้อง confirm ตอนเปลี่ยน op
+    selectedOps = Array.isArray(d.OPS) ? d.OPS : [];
+    if(d.NOTE_ID) noteId = d.NOTE_ID;
+    lastAutoFill = $("OP_DETAIL").value;
+    $("draftBadge").style.display = "inline-block";
   }catch(e){}
 }
 function clearForm(){
   if(!confirm("ล้างข้อมูลทั้งหมดในฟอร์ม?")) return;
   localStorage.removeItem(KEY);
-  const keepUrl = $("SHEET_URL").value, keepSize = $("PRINT_SIZE").value;
+  const keepUrl = $("SHEET_URL").value, keepKey = $("SHEET_KEY").value, keepSize = $("PRINT_SIZE").value;
   document.querySelectorAll("input[type=text],input[type=number],input[type=date],input[type=time],textarea").forEach(el=>el.value="");
   document.querySelectorAll("input[type=checkbox],input[type=radio]").forEach(el=>el.checked=false);
+  document.querySelectorAll(".invalid").forEach(el=>el.classList.remove("invalid"));
   PEOPLE_IDS.forEach(id=>{ $(id).value=""; });
-  $("WOUND").value=""; $("OP_TYPE").selectedIndex=0;
+  $("WOUND").value=""; $("OP_TYPE").value="";
   $("COMPLICATION").value="none";
-  $("SHEET_URL").value=keepUrl; $("PRINT_SIZE").value=keepSize;
+  $("SHEET_URL").value=keepUrl; $("SHEET_KEY").value=keepKey; $("PRINT_SIZE").value=keepSize;
+  selectedOps=[]; renderOpList();
+  noteId=newNoteId();
+  clearSignature();
   lastAutoFill=""; $("DRAIN_DETAIL").style.display="none";
-  toggleOther(); renderPreview();
+  renderPreview();
   $("draftBadge").style.display="none";
 }
 
 /* ===== init ===== */
-function toggleOther(){
-  $("opOtherWrap").style.display = ($("OP_TYPE").value === OTHER_LABEL) ? "" : "none";
-}
 (function init(){
   PEOPLE_IDS.forEach(id=>{
     fillPeopleSelect(id);
     $(id).addEventListener("change", handlePeopleChange);
   });
   $("SHEET_URL").value = getSheetUrl();
-  $("SHEET_URL").addEventListener("input", ()=> localStorage.setItem(SKEY, $("SHEET_URL").value.trim()));
+  $("SHEET_KEY").value = getSheetKey();
+  $("SHEET_URL").addEventListener("change", ()=>{ localStorage.setItem(SKEY, $("SHEET_URL").value.trim()); loadRemote(true); });
+  $("SHEET_KEY").addEventListener("input", ()=> localStorage.setItem(KKEY, $("SHEET_KEY").value.trim()));
+  try{ const c=JSON.parse(localStorage.getItem(CACHE_KEY)||"null"); if(c) applyRemote(c); }catch(e){}
   rebuildOpSelect("");
-  $("OP_TYPE").addEventListener("change", ()=>{ toggleOther(); prefillProcedure(); });
+  $("OP_TYPE").addEventListener("change", prefillProcedure);
   document.querySelectorAll('input[name=DRAIN]').forEach(r=>
     r.addEventListener("change", ()=>{ $("DRAIN_DETAIL").style.display = r.value==="yes"&&r.checked ? "" : "none"; }));
+  setupSignature();
+  setupOpSearch();
+  noteId = newNoteId();
   loadDraft();
-  toggleOther();
+  renderOpList();
   const dr = document.querySelector('input[name=DRAIN]:checked');
   $("DRAIN_DETAIL").style.display = (dr && dr.value==="yes") ? "" : "none";
   renderPreview();
+  const skip = new Set(["SHEET_URL","SHEET_KEY","OP_SEARCH"]);
   document.querySelectorAll("input,select,textarea").forEach(el=>{
-    el.addEventListener("input", ()=>{ renderPreview(); saveDraft(); });
-    el.addEventListener("change", ()=>{ renderPreview(); saveDraft(); });
+    if(skip.has(el.id)) return;
+    const h=()=>{ el.classList.remove("invalid"); renderPreview(); saveDraft(); };
+    el.addEventListener("input", h);
+    el.addEventListener("change", h);
   });
+  refreshMigrateBtn();
+  if(!getSheetUrl()) $("settingsBox").open = true;
+  loadRemote(false);
 })();
 </script>
 </body>
